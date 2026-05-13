@@ -1,0 +1,100 @@
+import socket
+import subprocess
+from datetime import datetime
+
+# Common subdomains to check
+SUBDOMAINS = ["www", "mail", "ftp", "dev", "test", "api"]
+
+def resolve_domain(domain):
+    try:
+        ip = socket.gethostbyname(domain)
+        return ip
+    except socket.gaierror:
+        return None
+
+def scan_ports(ip):
+    try:
+        print(f"[+] Running Nmap scan on {ip}...\n")
+
+        result = subprocess.check_output(
+            ["nmap", "-sV", ip],
+            text=True
+        )
+
+        return result
+
+    except Exception as e:
+        return f"Error running Nmap scan: {e}"
+
+def enumerate_subdomains(domain):
+    found = []
+
+    for sub in SUBDOMAINS:
+        subdomain = f"{sub}.{domain}"
+
+        try:
+            ip = socket.gethostbyname(subdomain)
+            found.append((subdomain, ip))
+
+        except socket.gaierror:
+            pass
+
+    return found
+
+def save_report(domain, ip, nmap_result, subdomains):
+    filename = f"{domain}_recon_report.txt"
+
+    with open(filename, "w") as report:
+
+        report.write("===== Reconnaissance Report =====\n")
+        report.write(f"Target Domain : {domain}\n")
+        report.write(f"Resolved IP   : {ip}\n")
+        report.write(f"Scan Time     : {datetime.now()}\n\n")
+
+        report.write("===== Nmap Scan Result =====\n")
+        report.write(nmap_result)
+        report.write("\n\n")
+
+        report.write("===== Discovered Subdomains =====\n")
+
+        if subdomains:
+            for sub, ip_addr in subdomains:
+                report.write(f"{sub} --> {ip_addr}\n")
+        else:
+            report.write("No common subdomains found.\n")
+
+    print(f"\n[+] Report saved as: {filename}")
+
+def main():
+
+    print("==== Basic Recon Automation Script ====\n")
+
+    domain = input("Enter target domain (example.com): ").strip()
+
+    ip = resolve_domain(domain)
+
+    if not ip:
+        print("[-] Unable to resolve domain.")
+        return
+
+    print(f"\n[+] Domain resolved: {domain} --> {ip}")
+
+    # Run Nmap scan
+    nmap_result = scan_ports(ip)
+
+    # Enumerate subdomains
+    print("\n[+] Enumerating common subdomains...\n")
+
+    subdomains = enumerate_subdomains(domain)
+
+    if subdomains:
+        for sub, ip_addr in subdomains:
+            print(f"[FOUND] {sub} --> {ip_addr}")
+    else:
+        print("[-] No common subdomains found.")
+
+    # Save report
+    save_report(domain, ip, nmap_result, subdomains)
+
+if __name__ == "__main__":
+    main()
